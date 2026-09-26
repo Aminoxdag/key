@@ -1,0 +1,271 @@
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VFX Pro - معالج الحواف</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+        body { 
+            background-color: #000; 
+            color: #fff; 
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .viewport {
+            height: 50vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #050505;
+            position: relative;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            touch-action: none;
+            image-rendering: -webkit-optimize-contrast;
+        }
+        .controls-overlay {
+            height: 50vh;
+            background: #111;
+            border-top: 1px solid #222;
+            padding: 15px;
+            overflow-y: auto;
+            border-radius: 30px 30px 0 0;
+            position: relative;
+        }
+        input[type="range"] { accent-color: #6366f1; width: 100%; height: 6px; }
+        .tab-btn {
+            padding: 10px 20px;
+            font-size: 13px;
+            border-radius: 12px;
+            background: #1a1a1a;
+            color: #777;
+            border: 1px solid #222;
+        }
+        .tab-btn.active {
+            background: #6366f1;
+            color: white;
+            border-color: #818cf8;
+        }
+        .control-group { background: #1a1a1a; padding: 12px; border-radius: 15px; margin-bottom: 10px; }
+        .control-label { display: flex; justify-content: space-between; font-size: 12px; color: #999; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="viewport" id="viewport">
+        <canvas id="mainCanvas"></canvas>
+    </div>
+
+    <div class="controls-overlay">
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
+            <button class="tab-btn active" onclick="switchTab('edge')">✂️ حل الحواف</button>
+            <button class="tab-btn" onclick="switchTab('color')">🎨 الألوان</button>
+            <button class="tab-btn" onclick="switchTab('transform')">📐 الوضع</button>
+            <button class="tab-btn" onclick="switchTab('files')">📁 الصور</button>
+        </div>
+
+        <!-- 1. Edge Tab (The Fix) -->
+        <div id="tab-edge" class="tab-content space-y-3">
+            <div class="control-group">
+                <div class="control-label"><span>قوة المسح (Tolerance)</span> <span id="thresholdVal">120</span></div>
+                <input type="range" id="threshold" min="0" max="250" value="120">
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>تآكل الحواف (Shrink/Erode)</span> <span id="erodeVal">0</span></div>
+                <input type="range" id="erode" min="0" max="5" value="0" step="1">
+                <p class="text-[10px] text-indigo-400 mt-2 italic">* يزيد من دخول القص للداخل لإخفاء الخط الأخضر.</p>
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>نعومة الأطراف (Softness)</span> <span id="blurVal">0.5px</span></div>
+                <input type="range" id="blur" min="0" max="10" value="0.5" step="0.1">
+            </div>
+        </div>
+
+        <!-- 2. Color Tab -->
+        <div id="tab-color" class="tab-content hidden space-y-3">
+            <div class="control-group">
+                <div class="control-label"><span>السطوع</span> <span id="brightVal">100%</span></div>
+                <input type="range" id="bright" min="50" max="150" value="100">
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>التباين</span> <span id="contrastVal">100%</span></div>
+                <input type="range" id="contrast" min="50" max="150" value="100">
+            </div>
+        </div>
+
+        <!-- 3. Transform Tab -->
+        <div id="tab-transform" class="tab-content hidden space-y-3">
+            <div class="control-group">
+                <div class="control-label"><span>الحجم</span> <span id="sizeVal">100%</span></div>
+                <input type="range" id="size" min="5" max="300" value="100">
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>التدوير</span> <span id="rotateVal">0°</span></div>
+                <input type="range" id="rotate" min="0" max="360" value="0">
+            </div>
+        </div>
+
+        <!-- 4. Files Tab -->
+        <div id="tab-files" class="tab-content hidden">
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <label class="bg-indigo-900/30 border border-indigo-500/30 p-4 rounded-xl text-center">
+                    <span class="text-xs block opacity-50 mb-1">صورة الكروما</span>
+                    <input type="file" id="greenInput" class="hidden" accept="image/*">
+                    <span class="text-indigo-300 font-bold">رفع</span>
+                </label>
+                <label class="bg-zinc-800 border border-zinc-700 p-4 rounded-xl text-center">
+                    <span class="text-xs block opacity-50 mb-1">المضافة</span>
+                    <input type="file" id="overlayInput" class="hidden" accept="image/*">
+                    <span class="text-zinc-300 font-bold">رفع</span>
+                </label>
+            </div>
+            <button id="downloadBtn" class="w-full bg-indigo-600 py-4 rounded-xl font-bold">حفظ الصورة النهائية</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        let greenImg = null, overlayImg = null;
+        let props = { x: 0, y: 0, scale: 1, rot: 0, isDragging: false };
+        let filters = { bright: 100, contrast: 100, blur: 0.5, threshold: 120, erode: 0 };
+
+        window.switchTab = (tabId) => {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            event.target.classList.add('active');
+        };
+
+        const setupInput = (id, prop, unit, isFilter) => {
+            document.getElementById(id).oninput = (e) => {
+                const v = e.target.value;
+                if(isFilter) filters[prop] = parseFloat(v);
+                else props[prop] = (id === 'size') ? v/100 : v;
+                document.getElementById(id + 'Val').innerText = v + unit;
+                render();
+            };
+        };
+
+        setupInput('size', 'scale', '%', false);
+        setupInput('rotate', 'rot', '°', false);
+        setupInput('bright', 'bright', '%', true);
+        setupInput('contrast', 'contrast', '%', true);
+        setupInput('blur', 'blur', 'px', true);
+        setupInput('threshold', 'threshold', '', true);
+        setupInput('erode', 'erode', '', true);
+
+        const upload = (id, cb) => {
+            document.getElementById(id).onchange = e => {
+                const r = new FileReader();
+                r.onload = ev => { const i = new Image(); i.onload = () => cb(i); i.src = ev.target.result; };
+                r.readAsDataURL(e.target.files[0]);
+            };
+        };
+
+        upload('greenInput', i => { greenImg = i; canvas.width = i.width; canvas.height = i.height; render(); });
+        upload('overlayInput', i => { overlayImg = i; props.x = canvas.width/2; props.y = canvas.height/2; render(); });
+
+        // Touch Control
+        const getP = (e) => {
+            const r = canvas.getBoundingClientRect();
+            const t = e.touches[0];
+            return { x: (t.clientX - r.left) * (canvas.width / r.width), y: (t.clientY - r.top) * (canvas.height / r.height) };
+        };
+        canvas.addEventListener('touchstart', e => { if(!overlayImg) return; props.isDragging = true; const p = getP(e); props.sx = p.x-props.x; props.sy = p.y-props.y; });
+        canvas.addEventListener('touchmove', e => { if(!props.isDragging) return; const p = getP(e); props.x = p.x-props.sx; props.y = p.y-props.sy; render(); e.preventDefault(); }, {passive:false});
+        canvas.addEventListener('touchend', () => props.isDragging = false);
+
+        function render() {
+            if (!greenImg) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Background
+            if (overlayImg) {
+                ctx.save();
+                ctx.filter = `brightness(${filters.bright}%) contrast(${filters.contrast}%)`;
+                ctx.translate(props.x, props.y);
+                ctx.rotate(props.rot * Math.PI / 180);
+                const w = overlayImg.width * props.scale;
+                const h = overlayImg.height * props.scale;
+                ctx.drawImage(overlayImg, -w/2, -h/2, w, h);
+                ctx.restore();
+            }
+
+            // 2. Advanced Chroma + Erode
+            const off = document.createElement('canvas');
+            off.width = canvas.width; off.height = canvas.height;
+            const oCtx = off.getContext('2d');
+            oCtx.drawImage(greenImg, 0, 0);
+
+            let imgData = oCtx.getImageData(0, 0, canvas.width, canvas.height);
+            let d = imgData.data;
+
+            // First Pass: Chroma Removal
+            for (let i = 0; i < d.length; i += 4) {
+                const r = d[i], g = d[i+1], b = d[i+2];
+                if (g > 50 && g > r * 1.05 && g > b * 1.05) {
+                    const dist = Math.sqrt((r-0)**2 + (g-255)**2 + (b-0)**2);
+                    if (dist < filters.threshold * 2) d[i+3] = 0;
+                }
+            }
+            
+            // Second Pass: Erode (Shrink edges)
+            if (filters.erode > 0) {
+                const erodedData = new Uint8ClampedArray(d);
+                const w = canvas.width;
+                for (let y = 1; y < canvas.height - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = (y * w + x) * 4;
+                        if (d[idx+3] > 0) {
+                            // Check neighbors
+                            for(let ny = -filters.erode; ny <= filters.erode; ny++) {
+                                for(let nx = -filters.erode; nx <= filters.erode; nx++) {
+                                    if(d[((y+ny)*w + (x+nx))*4 + 3] === 0) {
+                                        erodedData[idx+3] = 0;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                d.set(erodedData);
+            }
+
+            oCtx.putImageData(imgData, 0, 0);
+
+            // Final Render with Blur
+            ctx.save();
+            if(filters.blur > 0) ctx.filter = `blur(${filters.blur}px)`;
+            ctx.drawImage(off, 0, 0);
+            ctx.restore();
+        }
+
+        document.getElementById('downloadBtn').onclick = () => {
+            const l = document.createElement('a');
+            l.download = 'final_vfx.png';
+            l.href = canvas.toDataURL();
+            l.click();
+        };
+
+        window.onload = () => {
+            canvas.width = 1000; canvas.height = 1000;
+            ctx.fillStyle = '#050505'; ctx.fillRect(0,0,1000,1000);
+            ctx.fillStyle = '#333'; ctx.textAlign = 'center'; ctx.font = '30px Cairo';
+            ctx.fillText('ارفع الصور للبدء 📁', 500, 500);
+        };
+    </script>
+</body>
+</html>
+
+```
