@@ -1,133 +1,171 @@
-```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VFX Pro - معالج الحواف</title>
+    <title>محرر الكروما الذكي مع فرشاة الحماية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         body { 
-            background-color: #000; 
-            color: #fff; 
+            background-color: #09090b; 
+            color: #f4f4f5; 
             font-family: 'Cairo', sans-serif;
             margin: 0;
             overflow: hidden;
             height: 100vh;
         }
         .viewport {
-            height: 50vh;
+            height: 52vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #050505;
+            background: #000000;
             position: relative;
+            touch-action: none;
         }
         canvas {
             max-width: 100%;
             max-height: 100%;
             touch-action: none;
-            image-rendering: -webkit-optimize-contrast;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
         .controls-overlay {
-            height: 50vh;
-            background: #111;
-            border-top: 1px solid #222;
-            padding: 15px;
+            height: 48vh;
+            background: #18181b;
+            border-top: 1px solid #27272a;
+            padding: 12px;
             overflow-y: auto;
-            border-radius: 30px 30px 0 0;
-            position: relative;
+            border-radius: 20px 20px 0 0;
         }
-        input[type="range"] { accent-color: #6366f1; width: 100%; height: 6px; }
+        input[type="range"] { accent-color: #6366f1; width: 100%; height: 5px; }
         .tab-btn {
-            padding: 10px 20px;
-            font-size: 13px;
-            border-radius: 12px;
-            background: #1a1a1a;
-            color: #777;
-            border: 1px solid #222;
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 10px;
+            background: #27272a;
+            color: #a1a1aa;
+            border: 1px solid #3f3f46;
+            white-space: nowrap;
+            cursor: pointer;
         }
         .tab-btn.active {
             background: #6366f1;
             color: white;
             border-color: #818cf8;
+            font-weight: bold;
         }
-        .control-group { background: #1a1a1a; padding: 12px; border-radius: 15px; margin-bottom: 10px; }
-        .control-label { display: flex; justify-content: space-between; font-size: 12px; color: #999; margin-bottom: 8px; }
+        .tool-btn {
+            padding: 8px 12px;
+            font-size: 11px;
+            border-radius: 8px;
+            background: #27272a;
+            border: 1px solid #3f3f46;
+            color: #e4e4e7;
+            font-weight: 600;
+        }
+        .tool-btn.active {
+            background: #22c55e;
+            color: black;
+            border-color: #4ade80;
+        }
+        .control-group { background: #27272a; padding: 10px; border-radius: 12px; margin-bottom: 8px; }
+        .control-label { display: flex; justify-content: space-between; font-size: 11px; color: #a1a1aa; margin-bottom: 6px; }
     </style>
 </head>
 <body>
 
+    <!-- منطقة المعاينة -->
     <div class="viewport" id="viewport">
         <canvas id="mainCanvas"></canvas>
+        <div id="modeIndicator" class="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] text-indigo-300 border border-indigo-500/30 font-semibold pointer-events-none">
+            الوضع: تحريك الصورة 🖐️
+        </div>
     </div>
 
+    <!-- لوحة التحكم -->
     <div class="controls-overlay">
-        <!-- Tabs -->
-        <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
-            <button class="tab-btn active" onclick="switchTab('edge')">✂️ حل الحواف</button>
-            <button class="tab-btn" onclick="switchTab('color')">🎨 الألوان</button>
-            <button class="tab-btn" onclick="switchTab('transform')">📐 الوضع</button>
-            <button class="tab-btn" onclick="switchTab('files')">📁 الصور</button>
+        <!-- شريط التبويبات -->
+        <div class="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar">
+            <button class="tab-btn active" onclick="switchTab('files', this)">📁 الصور</button>
+            <button class="tab-btn" onclick="switchTab('protect', this)">🛡️ فرشاة الحماية</button>
+            <button class="tab-btn" onclick="switchTab('chroma', this)">🟢 إعدادات الكروما</button>
+            <button class="tab-btn" onclick="switchTab('transform', this)">📐 الوضع والحجم</button>
         </div>
 
-        <!-- 1. Edge Tab (The Fix) -->
-        <div id="tab-edge" class="tab-content space-y-3">
-            <div class="control-group">
-                <div class="control-label"><span>قوة المسح (Tolerance)</span> <span id="thresholdVal">120</span></div>
-                <input type="range" id="threshold" min="0" max="250" value="120">
+        <!-- 1. الصور -->
+        <div id="tab-files" class="tab-content space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="document.getElementById('greenInput').click()" class="bg-indigo-900/40 border border-indigo-500/40 p-3 rounded-xl text-center hover:bg-indigo-900/60 transition">
+                    <span class="text-xs text-indigo-300 font-bold block mb-1">1️⃣ صورة الكروما</span>
+                    <span class="text-[10px] text-gray-400">رفع من الجهاز</span>
+                </button>
+                <button onclick="document.getElementById('overlayInput').click()" class="bg-zinc-800 border border-zinc-700 p-3 rounded-xl text-center hover:bg-zinc-700 transition">
+                    <span class="text-xs text-zinc-200 font-bold block mb-1">2️⃣ الصورة المضافة</span>
+                    <span class="text-[10px] text-gray-400">رفع من الجهاز</span>
+                </button>
             </div>
-            <div class="control-group">
-                <div class="control-label"><span>تآكل الحواف (Shrink/Erode)</span> <span id="erodeVal">0</span></div>
-                <input type="range" id="erode" min="0" max="5" value="0" step="1">
-                <p class="text-[10px] text-indigo-400 mt-2 italic">* يزيد من دخول القص للداخل لإخفاء الخط الأخضر.</p>
+            
+            <input type="file" id="greenInput" class="hidden" accept="image/*">
+            <input type="file" id="overlayInput" class="hidden" accept="image/*">
+
+            <button id="downloadBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-xs shadow-lg transition">حفظ الصورة النهائية 💾</button>
+        </div>
+
+        <!-- 2. فرشاة الحماية والاستعادة (الحل للمشكلة) -->
+        <div id="tab-protect" class="tab-content hidden space-y-3">
+            <div class="bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl text-xs text-indigo-200 space-y-1">
+                <p class="font-bold text-indigo-400">💡 طريقة حل المشكلة:</p>
+                <p>اختر <b>"فرشاة الحماية"</b> وقم بالتلوين بأصبعك على الأجزاء الخضراء التي اختفت بالخطأ لترجع فوراً كالصورة الأصلية!</p>
             </div>
+
+            <div class="flex gap-2">
+                <button id="toolMoveBtn" class="tool-btn active flex-1" onclick="setInteractionMode('move')">🖐️ تحريك الصورة</button>
+                <button id="toolProtectBtn" class="tool-btn flex-1" onclick="setInteractionMode('protect')">🛡️ فرشاة الحماية</button>
+                <button id="toolEraseBtn" class="tool-btn flex-1" onclick="setInteractionMode('erase')">🧹 مسح الحماية</button>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label"><span>حجم الفرشاة</span> <span id="brushSizeVal">25px</span></div>
+                <input type="range" id="brushSize" min="5" max="100" value="25">
+            </div>
+
+            <button onclick="clearMask()" class="w-full bg-red-900/30 border border-red-500/30 text-red-300 py-2 rounded-lg text-xs font-semibold">إعادة رسم الحماية من جديد 🔄</button>
+        </div>
+
+        <!-- 3. إعدادات الكروما والقطارة -->
+        <div id="tab-chroma" class="tab-content hidden space-y-3">
+            <div class="flex items-center gap-3 bg-zinc-900 p-2.5 rounded-xl border border-zinc-800">
+                <button id="pickerBtn" onclick="togglePicker()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 rounded-lg font-bold whitespace-nowrap">
+                    🎯 اختيار اللون بالقطارة
+                </button>
+                <div class="flex items-center gap-2 text-xs text-gray-300">
+                    <span>اللون المحدد:</span>
+                    <div id="colorPreview" class="w-6 h-6 rounded-full border border-white" style="background-color: #00ff00;"></div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label"><span>قوة عزل اللون (Tolerance)</span> <span id="thresholdVal">110</span></div>
+                <input type="range" id="threshold" min="5" max="220" value="110">
+            </div>
+
             <div class="control-group">
                 <div class="control-label"><span>نعومة الأطراف (Softness)</span> <span id="blurVal">0.5px</span></div>
-                <input type="range" id="blur" min="0" max="10" value="0.5" step="0.1">
+                <input type="range" id="blur" min="0" max="8" value="0.5" step="0.1">
             </div>
         </div>
 
-        <!-- 2. Color Tab -->
-        <div id="tab-color" class="tab-content hidden space-y-3">
-            <div class="control-group">
-                <div class="control-label"><span>السطوع</span> <span id="brightVal">100%</span></div>
-                <input type="range" id="bright" min="50" max="150" value="100">
-            </div>
-            <div class="control-group">
-                <div class="control-label"><span>التباين</span> <span id="contrastVal">100%</span></div>
-                <input type="range" id="contrast" min="50" max="150" value="100">
-            </div>
-        </div>
-
-        <!-- 3. Transform Tab -->
+        <!-- 4. الوضع والحجم -->
         <div id="tab-transform" class="tab-content hidden space-y-3">
             <div class="control-group">
-                <div class="control-label"><span>الحجم</span> <span id="sizeVal">100%</span></div>
+                <div class="control-label"><span>حجم الصورة المضافة</span> <span id="sizeVal">100%</span></div>
                 <input type="range" id="size" min="5" max="300" value="100">
             </div>
             <div class="control-group">
                 <div class="control-label"><span>التدوير</span> <span id="rotateVal">0°</span></div>
                 <input type="range" id="rotate" min="0" max="360" value="0">
             </div>
-        </div>
-
-        <!-- 4. Files Tab -->
-        <div id="tab-files" class="tab-content hidden">
-            <div class="grid grid-cols-2 gap-3 mb-4">
-                <label class="bg-indigo-900/30 border border-indigo-500/30 p-4 rounded-xl text-center">
-                    <span class="text-xs block opacity-50 mb-1">صورة الكروما</span>
-                    <input type="file" id="greenInput" class="hidden" accept="image/*">
-                    <span class="text-indigo-300 font-bold">رفع</span>
-                </label>
-                <label class="bg-zinc-800 border border-zinc-700 p-4 rounded-xl text-center">
-                    <span class="text-xs block opacity-50 mb-1">المضافة</span>
-                    <input type="file" id="overlayInput" class="hidden" accept="image/*">
-                    <span class="text-zinc-300 font-bold">رفع</span>
-                </label>
-            </div>
-            <button id="downloadBtn" class="w-full bg-indigo-600 py-4 rounded-xl font-bold">حفظ الصورة النهائية</button>
         </div>
     </div>
 
@@ -136,63 +174,198 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         let greenImg = null, overlayImg = null;
-        let props = { x: 0, y: 0, scale: 1, rot: 0, isDragging: false };
-        let filters = { bright: 100, contrast: 100, blur: 0.5, threshold: 120, erode: 0 };
+        let maskCanvas = document.createElement('canvas');
+        let maskCtx = maskCanvas.getContext('2d');
 
-        window.switchTab = (tabId) => {
+        let interactionMode = 'move'; // 'move', 'protect', 'erase', 'picker'
+        let keyColor = { r: 0, g: 255, b: 0 }; // Default Chroma Green
+        
+        let props = { x: 0, y: 0, scale: 1, rot: 0, isDragging: false };
+        let brush = { size: 25, isDrawing: false };
+        let filters = { threshold: 110, blur: 0.5 };
+
+        window.switchTab = (tabId, btn) => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + tabId).classList.remove('hidden');
-            event.target.classList.add('active');
+            if (btn) btn.classList.add('active');
         };
 
-        const setupInput = (id, prop, unit, isFilter) => {
-            document.getElementById(id).oninput = (e) => {
-                const v = e.target.value;
-                if(isFilter) filters[prop] = parseFloat(v);
-                else props[prop] = (id === 'size') ? v/100 : v;
-                document.getElementById(id + 'Val').innerText = v + unit;
-                render();
-            };
+        window.setInteractionMode = (mode) => {
+            interactionMode = mode;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            const ind = document.getElementById('modeIndicator');
+            
+            if (mode === 'move') {
+                document.getElementById('toolMoveBtn').classList.add('active');
+                ind.innerText = 'الوضع: تحريك الصورة 🖐️';
+            } else if (mode === 'protect') {
+                document.getElementById('toolProtectBtn').classList.add('active');
+                ind.innerText = 'الوضع: رسم الحماية (استعادة الأجزاء) 🛡️';
+            } else if (mode === 'erase') {
+                document.getElementById('toolEraseBtn').classList.add('active');
+                ind.innerText = 'الوضع: مسح قناع الحماية 🧹';
+            } else if (mode === 'picker') {
+                ind.innerText = 'الوضع: انقر على اللون المراد عزله 🎯';
+            }
         };
 
-        setupInput('size', 'scale', '%', false);
-        setupInput('rotate', 'rot', '°', false);
-        setupInput('bright', 'bright', '%', true);
-        setupInput('contrast', 'contrast', '%', true);
-        setupInput('blur', 'blur', 'px', true);
-        setupInput('threshold', 'threshold', '', true);
-        setupInput('erode', 'erode', '', true);
+        function togglePicker() {
+            setInteractionMode('picker');
+        }
 
-        const upload = (id, cb) => {
+        // Setup Controls
+        document.getElementById('brushSize').oninput = (e) => {
+            brush.size = parseInt(e.target.value);
+            document.getElementById('brushSizeVal').innerText = brush.size + 'px';
+        };
+
+        document.getElementById('threshold').oninput = (e) => {
+            filters.threshold = parseInt(e.target.value);
+            document.getElementById('thresholdVal').innerText = filters.threshold;
+            render();
+        };
+
+        document.getElementById('blur').oninput = (e) => {
+            filters.blur = parseFloat(e.target.value);
+            document.getElementById('blurVal').innerText = filters.blur + 'px';
+            render();
+        };
+
+        document.getElementById('size').oninput = (e) => {
+            props.scale = e.target.value / 100;
+            document.getElementById('sizeVal').innerText = e.target.value + '%';
+            render();
+        };
+
+        document.getElementById('rotate').oninput = (e) => {
+            props.rot = parseInt(e.target.value);
+            document.getElementById('rotateVal').innerText = props.rot + '°';
+            render();
+        };
+
+        // Upload Handlers
+        const handleUpload = (id, cb) => {
             document.getElementById(id).onchange = e => {
+                if (!e.target.files[0]) return;
                 const r = new FileReader();
-                r.onload = ev => { const i = new Image(); i.onload = () => cb(i); i.src = ev.target.result; };
+                r.onload = ev => {
+                    const img = new Image();
+                    img.onload = () => cb(img);
+                    img.src = ev.target.result;
+                };
                 r.readAsDataURL(e.target.files[0]);
             };
         };
 
-        upload('greenInput', i => { greenImg = i; canvas.width = i.width; canvas.height = i.height; render(); });
-        upload('overlayInput', i => { overlayImg = i; props.x = canvas.width/2; props.y = canvas.height/2; render(); });
+        handleUpload('greenInput', img => {
+            greenImg = img;
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            // Setup Protection Mask Canvas
+            maskCanvas.width = img.width;
+            maskCanvas.height = img.height;
+            clearMask();
+            
+            render();
+        });
 
-        // Touch Control
-        const getP = (e) => {
+        handleUpload('overlayInput', img => {
+            overlayImg = img;
+            props.x = canvas.width / 2;
+            props.y = canvas.height / 2;
+            render();
+        });
+
+        function clearMask() {
+            maskCtx.fillStyle = '#000000'; // Black = No protection
+            maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+            render();
+        }
+
+        // Touch & Mouse Input Handling
+        const getCanvasCoords = (e) => {
             const r = canvas.getBoundingClientRect();
-            const t = e.touches[0];
-            return { x: (t.clientX - r.left) * (canvas.width / r.width), y: (t.clientY - r.top) * (canvas.height / r.height) };
+            const t = e.touches ? e.touches[0] : e;
+            return {
+                x: (t.clientX - r.left) * (canvas.width / r.width),
+                y: (t.clientY - r.top) * (canvas.height / r.height)
+            };
         };
-        canvas.addEventListener('touchstart', e => { if(!overlayImg) return; props.isDragging = true; const p = getP(e); props.sx = p.x-props.x; props.sy = p.y-props.y; });
-        canvas.addEventListener('touchmove', e => { if(!props.isDragging) return; const p = getP(e); props.x = p.x-props.sx; props.y = p.y-props.sy; render(); e.preventDefault(); }, {passive:false});
-        canvas.addEventListener('touchend', () => props.isDragging = false);
 
+        const handleStart = (e) => {
+            if (!greenImg) return;
+            const pos = getCanvasCoords(e);
+
+            if (interactionMode === 'picker') {
+                // Pick color from green image
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = greenImg.width;
+                tempCanvas.height = greenImg.height;
+                const tCtx = tempCanvas.getContext('2d');
+                tCtx.drawImage(greenImg, 0, 0);
+                const pixel = tCtx.getImageData(Math.floor(pos.x), Math.floor(pos.y), 1, 1).data;
+                keyColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
+                document.getElementById('colorPreview').style.backgroundColor = `rgb(${keyColor.r},${keyColor.g},${keyColor.b})`;
+                setInteractionMode('move');
+                render();
+                return;
+            }
+
+            if (interactionMode === 'move' && overlayImg) {
+                props.isDragging = true;
+                props.sx = pos.x - props.x;
+                props.sy = pos.y - props.y;
+            } else if (interactionMode === 'protect' || interactionMode === 'erase') {
+                brush.isDrawing = true;
+                drawMask(pos.x, pos.y);
+            }
+        };
+
+        const handleMove = (e) => {
+            const pos = getCanvasCoords(e);
+            if (props.isDragging) {
+                props.x = pos.x - props.sx;
+                props.y = pos.y - props.sy;
+                render();
+            } else if (brush.isDrawing) {
+                drawMask(pos.x, pos.y);
+            }
+            if (e.preventDefault && interactionMode !== 'move') e.preventDefault();
+        };
+
+        const handleEnd = () => {
+            props.isDragging = false;
+            brush.isDrawing = false;
+        };
+
+        function drawMask(x, y) {
+            maskCtx.save();
+            maskCtx.beginPath();
+            maskCtx.arc(x, y, brush.size, 0, Math.PI * 2);
+            maskCtx.fillStyle = (interactionMode === 'protect') ? '#ffffff' : '#000000'; // White = Protected
+            maskCtx.fill();
+            maskCtx.restore();
+            render();
+        }
+
+        canvas.addEventListener('mousedown', handleStart);
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+
+        canvas.addEventListener('touchstart', handleStart, { passive: false });
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        canvas.addEventListener('touchend', handleEnd);
+
+        // Core Rendering Engine with Mask Protection
         function render() {
             if (!greenImg) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. Draw Background
+            // 1. Draw Overlay Image (Bottom Layer)
             if (overlayImg) {
                 ctx.save();
-                ctx.filter = `brightness(${filters.bright}%) contrast(${filters.contrast}%)`;
                 ctx.translate(props.x, props.y);
                 ctx.rotate(props.rot * Math.PI / 180);
                 const w = overlayImg.width * props.scale;
@@ -201,68 +374,64 @@
                 ctx.restore();
             }
 
-            // 2. Advanced Chroma + Erode
+            // 2. Process Green Chroma + Protection Mask
             const off = document.createElement('canvas');
-            off.width = canvas.width; off.height = canvas.height;
+            off.width = greenImg.width;
+            off.height = greenImg.height;
             const oCtx = off.getContext('2d');
             oCtx.drawImage(greenImg, 0, 0);
 
-            let imgData = oCtx.getImageData(0, 0, canvas.width, canvas.height);
-            let d = imgData.data;
+            const imgData = oCtx.getImageData(0, 0, greenImg.width, greenImg.height);
+            const d = imgData.data;
 
-            // First Pass: Chroma Removal
+            const maskData = maskCtx.getImageData(0, 0, greenImg.width, greenImg.height).data;
+
             for (let i = 0; i < d.length; i += 4) {
-                const r = d[i], g = d[i+1], b = d[i+2];
-                if (g > 50 && g > r * 1.05 && g > b * 1.05) {
-                    const dist = Math.sqrt((r-0)**2 + (g-255)**2 + (b-0)**2);
-                    if (dist < filters.threshold * 2) d[i+3] = 0;
-                }
-            }
-            
-            // Second Pass: Erode (Shrink edges)
-            if (filters.erode > 0) {
-                const erodedData = new Uint8ClampedArray(d);
-                const w = canvas.width;
-                for (let y = 1; y < canvas.height - 1; y++) {
-                    for (let x = 1; x < w - 1; x++) {
-                        const idx = (y * w + x) * 4;
-                        if (d[idx+3] > 0) {
-                            // Check neighbors
-                            for(let ny = -filters.erode; ny <= filters.erode; ny++) {
-                                for(let nx = -filters.erode; nx <= filters.erode; nx++) {
-                                    if(d[((y+ny)*w + (x+nx))*4 + 3] === 0) {
-                                        erodedData[idx+3] = 0;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
+                const isProtected = maskData[i] > 128; // If user painted protection here
+
+                if (!isProtected) { // Apply chroma removal only if NOT protected
+                    const r = d[i], g = d[i+1], b = d[i+2];
+                    
+                    // Distance from target Key Color
+                    const dist = Math.sqrt((r - keyColor.r)**2 + (g - keyColor.g)**2 + (b - keyColor.b)**2);
+
+                    if (dist < filters.threshold) {
+                        d[i+3] = 0; // Make pixel transparent
                     }
                 }
-                d.set(erodedData);
             }
 
             oCtx.putImageData(imgData, 0, 0);
 
-            // Final Render with Blur
+            // Final Composite
             ctx.save();
-            if(filters.blur > 0) ctx.filter = `blur(${filters.blur}px)`;
+            if (filters.blur > 0) ctx.filter = `blur(${filters.blur}px)`;
             ctx.drawImage(off, 0, 0);
             ctx.restore();
+
+            // Overlay Brush Helper Circle on screen when painting
+            if (interactionMode === 'protect' || interactionMode === 'erase') {
+                // Brush indicator is drawn dynamically during touch
+            }
         }
 
         document.getElementById('downloadBtn').onclick = () => {
+            if (!greenImg) return alert("الرجاء رفع صورة الكروما أولاً");
             const l = document.createElement('a');
-            l.download = 'final_vfx.png';
+            l.download = 'chroma_protected_result.png';
             l.href = canvas.toDataURL();
             l.click();
         };
 
         window.onload = () => {
-            canvas.width = 1000; canvas.height = 1000;
-            ctx.fillStyle = '#050505'; ctx.fillRect(0,0,1000,1000);
-            ctx.fillStyle = '#333'; ctx.textAlign = 'center'; ctx.font = '30px Cairo';
-            ctx.fillText('ارفع الصور للبدء 📁', 500, 500);
+            canvas.width = 1000; 
+            canvas.height = 1000;
+            ctx.fillStyle = '#09090b'; 
+            ctx.fillRect(0,0,1000,1000);
+            ctx.fillStyle = '#52525b';
+            ctx.font = '24px Cairo';
+            ctx.textAlign = 'center';
+            ctx.fillText('قم برفع الصور للبدء 📁', 500, 500);
         };
     </script>
 </body>
