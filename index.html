@@ -31,13 +31,14 @@
         }
 
         .viewport-container {
-            height: 52vh;
+            height: 50vh;
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
             touch-action: none;
             overflow: hidden;
+            padding: 8px;
         }
 
         canvas {
@@ -45,10 +46,13 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             border-radius: 8px;
             cursor: crosshair;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
 
         .controls-overlay {
-            height: 48vh;
+            height: 50vh;
             background: #18181b;
             border-top: 1px solid #27272a;
             padding: 14px;
@@ -66,8 +70,8 @@
         }
 
         .tab-btn {
-            padding: 8px 16px;
-            font-size: 13px;
+            padding: 8px 14px;
+            font-size: 12px;
             border-radius: 12px;
             background: #27272a;
             color: #a1a1aa;
@@ -111,7 +115,7 @@
             background: #27272a; 
             padding: 12px; 
             border-radius: 14px; 
-            border: 1px solid #3f3f46/50;
+            border: 1px solid rgba(63, 63, 70, 0.5);
             margin-bottom: 10px; 
         }
 
@@ -124,7 +128,6 @@
             font-weight: 600;
         }
 
-        /* Custom Toast Notification */
         #toast {
             visibility: hidden;
             min-width: 280px;
@@ -163,7 +166,7 @@
         <canvas id="mainCanvas"></canvas>
         
         <!-- مؤشر الحالة العلوي -->
-        <div id="modeIndicator" class="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] text-indigo-300 border border-indigo-500/40 font-bold shadow-lg pointer-events-none flex items-center gap-2">
+        <div id="modeIndicator" class="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] text-indigo-300 border border-indigo-500/40 font-bold shadow-lg pointer-events-none flex items-center gap-2 z-10">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span id="modeText">الوضع: تحريك الصورة 🖐️</span>
         </div>
@@ -319,7 +322,7 @@
         const canvas = document.getElementById('mainCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
-        let greenImg = null;    // صورة الكروما
+        let greenImg = null;    // صورة الكروما (المقدمة)
         let overlayImg = null;  // صورة الخلفية
 
         // كانفاس قناع الحماية المستقل (Offscreen Mask Canvas)
@@ -413,7 +416,7 @@
         // معالجة رفع الصور المحلية من الجهاز
         const handleUpload = (inputId, callback) => {
             document.getElementById(inputId).onchange = e => {
-                if (!e.target.files[0]) return;
+                if (!e.target.files || !e.target.files[0]) return;
                 const file = e.target.files[0];
                 const reader = new FileReader();
                 reader.onload = ev => {
@@ -431,28 +434,40 @@
             canvas.height = img.height;
             maskCanvas.width = img.width;
             maskCanvas.height = img.height;
+            
+            // إعادة ضبط موقع الخلفية إلى منتصف الصورة الجديدة
+            props.x = canvas.width / 2;
+            props.y = canvas.height / 2;
+            
             document.getElementById('canvasPlaceholder').classList.add('hidden');
             clearMask();
-            showToast('تم تحميل صورة الكروما من الجهاز');
+            showToast('تم تحميل صورة الكروما بنجاح 🟢');
             render();
         });
 
         handleUpload('overlayInput', img => {
             overlayImg = img;
+            if (!greenImg) {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                maskCanvas.width = img.width;
+                maskCanvas.height = img.height;
+                document.getElementById('canvasPlaceholder').classList.add('hidden');
+            }
             props.x = canvas.width / 2;
             props.y = canvas.height / 2;
-            showToast('تم تحميل صورة الخلفية من الجهاز');
+            showToast('تم تحميل صورة الخلفية بنجاح 🖼️');
             render();
         });
 
         // تحميل صورة الكروما عبر رابط مباشر URL
         window.loadGreenFromUrl = () => {
             const url = document.getElementById('greenUrlInput').value.trim();
-            if (!url) return showToast('يرجى أدخال رابط الصورة أولاً');
+            if (!url) return showToast('يرجى إدخال رابط الصورة أولاً');
 
             showToast('جاري جلب صورة الكروما من الرابط...');
             const img = new Image();
-            img.crossOrigin = 'anonymous'; // محاولة تخطي قيود CORS
+            img.crossOrigin = 'anonymous'; 
             
             img.onload = () => {
                 greenImg = img;
@@ -460,6 +475,8 @@
                 canvas.height = img.height;
                 maskCanvas.width = img.width;
                 maskCanvas.height = img.height;
+                props.x = canvas.width / 2;
+                props.y = canvas.height / 2;
                 document.getElementById('canvasPlaceholder').classList.add('hidden');
                 clearMask();
                 showToast('تم جلب صورة الكروما بنجاح! 🟢');
@@ -467,7 +484,7 @@
             };
 
             img.onerror = () => {
-                showToast('فشل جلب الصورة. تأكد من صحة الرابط أو سماح الموقع المستضيف (CORS).');
+                showToast('فشل جلب الصورة. تأكد من صحة الرابط وسماح الموقع (CORS).');
             };
 
             img.src = url;
@@ -476,14 +493,21 @@
         // تحميل صورة الخلفية عبر رابط مباشر URL
         window.loadOverlayFromUrl = () => {
             const url = document.getElementById('overlayUrlInput').value.trim();
-            if (!url) return showToast('يرجى أدخال رابط خلفية صحيح أولاً');
+            if (!url) return showToast('يرجى إدخال رابط خلفية صحيح أولاً');
 
             showToast('جاري جلب صورة الخلفية...');
             const img = new Image();
-            img.crossOrigin = 'anonymous'; // محاولة تخطي قيود CORS
+            img.crossOrigin = 'anonymous'; 
 
             img.onload = () => {
                 overlayImg = img;
+                if (!greenImg) {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    maskCanvas.width = img.width;
+                    maskCanvas.height = img.height;
+                    document.getElementById('canvasPlaceholder').classList.add('hidden');
+                }
                 props.x = canvas.width / 2;
                 props.y = canvas.height / 2;
                 showToast('تم جلب صورة الخلفية بنجاح! 🖼️');
@@ -491,7 +515,7 @@
             };
 
             img.onerror = () => {
-                showToast('فشل جلب الخلفية. تحقق من رابط الصورة وسياسة الأمان للرابط.');
+                showToast('فشل جلب الخلفية. تحقق من رابط الصورة وسياسة الأمان.');
             };
 
             img.src = url;
@@ -538,8 +562,8 @@
 
         const getCanvasCoords = (e) => {
             const rect = canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
             return {
                 x: (clientX - rect.left) * (canvas.width / rect.width),
                 y: (clientY - rect.top) * (canvas.height / rect.height)
@@ -547,10 +571,11 @@
         };
 
         const handleStart = (e) => {
-            if (!greenImg) return;
+            if (!greenImg && !overlayImg) return;
+            if (e.cancelable) e.preventDefault();
             const pos = getCanvasCoords(e);
 
-            if (interactionMode === 'picker') {
+            if (interactionMode === 'picker' && greenImg) {
                 try {
                     const tempCanvas = document.createElement('canvas');
                     tempCanvas.width = greenImg.width;
@@ -572,8 +597,8 @@
             if (interactionMode === 'move' && overlayImg) {
                 props.isDragging = true;
                 props.sx = pos.x - props.x;
-                props.sy = pos.y - props.y;
-            } else if (interactionMode === 'protect' || interactionMode === 'erase') {
+                props.sy = pos.y - props.sy;
+            } else if ((interactionMode === 'protect' || interactionMode === 'erase') && greenImg) {
                 saveMaskState();
                 brush.isDrawing = true;
                 brush.lastX = pos.x;
@@ -583,19 +608,19 @@
         };
 
         const handleMove = (e) => {
-            if (!greenImg) return;
+            if (!greenImg && !overlayImg) return;
+            if (e.cancelable) e.preventDefault();
             const pos = getCanvasCoords(e);
 
             if (props.isDragging) {
                 props.x = pos.x - props.sx;
                 props.y = pos.y - props.sy;
                 render();
-            } else if (brush.isDrawing) {
+            } else if (brush.isDrawing && greenImg) {
                 drawMaskLine(brush.lastX, brush.lastY, pos.x, pos.y);
                 brush.lastX = pos.x;
                 brush.lastY = pos.y;
             }
-            if (e.preventDefault && (interactionMode === 'protect' || interactionMode === 'erase')) e.preventDefault();
         };
 
         const handleEnd = () => {
@@ -630,7 +655,7 @@
         canvas.addEventListener('touchend', handleEnd);
 
         function render() {
-            if (!greenImg) return;
+            if (!greenImg && !overlayImg) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 1. رسم الصورة الخلفية
@@ -645,52 +670,53 @@
             }
 
             // 2. معالجة الكروما وقناع الحماية
-            try {
-                const offscreen = document.createElement('canvas');
-                offscreen.width = greenImg.width;
-                offscreen.height = greenImg.height;
-                const oCtx = offscreen.getContext('2d');
-                oCtx.drawImage(greenImg, 0, 0);
+            if (greenImg) {
+                try {
+                    const offscreen = document.createElement('canvas');
+                    offscreen.width = greenImg.width;
+                    offscreen.height = greenImg.height;
+                    const oCtx = offscreen.getContext('2d');
+                    oCtx.drawImage(greenImg, 0, 0);
 
-                const imgData = oCtx.getImageData(0, 0, greenImg.width, greenImg.height);
-                const d = imgData.data;
+                    const imgData = oCtx.getImageData(0, 0, greenImg.width, greenImg.height);
+                    const d = imgData.data;
 
-                const maskData = maskCtx.getImageData(0, 0, greenImg.width, greenImg.height).data;
+                    const maskData = maskCtx.getImageData(0, 0, greenImg.width, greenImg.height).data;
 
-                for (let i = 0; i < d.length; i += 4) {
-                    const isProtected = maskData[i] > 128; // هل البكسل محمي بالفرشاة؟
+                    for (let i = 0; i < d.length; i += 4) {
+                        const isProtected = maskData[i] > 128; // هل البكسل محمي بالفرشاة؟
 
-                    if (!isProtected) { 
-                        const r = d[i], g = d[i+1], b = d[i+2];
-                        
-                        const dist = Math.sqrt(
-                            (r - keyColor.r) ** 2 + 
-                            (g - keyColor.g) ** 2 + 
-                            (b - keyColor.b) ** 2
-                        );
+                        if (!isProtected) { 
+                            const r = d[i], g = d[i+1], b = d[i+2];
+                            
+                            const dist = Math.sqrt(
+                                (r - keyColor.r) ** 2 + 
+                                (g - keyColor.g) ** 2 + 
+                                (b - keyColor.b) ** 2
+                            );
 
-                        if (dist < filters.threshold) {
-                            d[i+3] = 0; // جعل البكسل شفاف
+                            if (dist < filters.threshold) {
+                                d[i+3] = 0; // جعل البكسل شفاف
+                            }
                         }
                     }
+
+                    oCtx.putImageData(imgData, 0, 0);
+
+                    // 3. الدمج مع تأثير النعومة
+                    ctx.save();
+                    if (filters.blur > 0) ctx.filter = `blur(${filters.blur}px)`;
+                    ctx.drawImage(offscreen, 0, 0);
+                    ctx.restore();
+                } catch(e) {
+                    ctx.drawImage(greenImg, 0, 0);
                 }
-
-                oCtx.putImageData(imgData, 0, 0);
-
-                // 3. الدمج مع تأثير النعومة
-                ctx.save();
-                if (filters.blur > 0) ctx.filter = `blur(${filters.blur}px)`;
-                ctx.drawImage(offscreen, 0, 0);
-                ctx.restore();
-            } catch(e) {
-                // في حالة تقييد CORS أثناء العزل
-                ctx.drawImage(greenImg, 0, 0);
             }
         }
 
         // تنزيل الصورة النهائية
         document.getElementById('downloadBtn').onclick = () => {
-            if (!greenImg) return showToast('يرجى رفع صورة الكروما أولاً للتصدير');
+            if (!greenImg && !overlayImg) return showToast('يرجى رفع صورة أولاً للتصدير');
             
             try {
                 const link = document.createElement('a');
