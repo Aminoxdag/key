@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>محرر الكروما الذكي مع فرشاة الحماية</title>
+    <title>محرر الكروما الذكي ورابط الصور المباشر</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         body { 
             background-color: #09090b; 
             color: #f4f4f5; 
@@ -14,158 +14,304 @@
             margin: 0;
             overflow: hidden;
             height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        .viewport {
+
+        /* نمط شطرنجي للخلفية الشفافة */
+        .checkerboard-bg {
+            background-color: #121215;
+            background-image: 
+                linear-gradient(45deg, #1d1d22 25%, transparent 25%), 
+                linear-gradient(-45deg, #1d1d22 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1d1d22 75%), 
+                linear-gradient(-45deg, transparent 75%, #1d1d22 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .viewport-container {
             height: 52vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #000000;
             position: relative;
             touch-action: none;
+            overflow: hidden;
         }
+
         canvas {
-            max-width: 100%;
-            max-height: 100%;
             touch-action: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border-radius: 8px;
+            cursor: crosshair;
         }
+
         .controls-overlay {
             height: 48vh;
             background: #18181b;
             border-top: 1px solid #27272a;
-            padding: 12px;
+            padding: 14px;
             overflow-y: auto;
             border-radius: 20px 20px 0 0;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.5);
         }
-        input[type="range"] { accent-color: #6366f1; width: 100%; height: 5px; }
+
+        input[type="range"] { 
+            accent-color: #6366f1; 
+            width: 100%; 
+            height: 6px; 
+            background: #27272a;
+            border-radius: 4px;
+        }
+
         .tab-btn {
-            padding: 6px 14px;
-            font-size: 12px;
-            border-radius: 10px;
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 12px;
             background: #27272a;
             color: #a1a1aa;
             border: 1px solid #3f3f46;
             white-space: nowrap;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
+
         .tab-btn.active {
-            background: #6366f1;
+            background: #4f46e5;
             color: white;
-            border-color: #818cf8;
+            border-color: #6366f1;
             font-weight: bold;
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
         }
+
         .tool-btn {
-            padding: 8px 12px;
-            font-size: 11px;
-            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 12px;
+            border-radius: 10px;
             background: #27272a;
             border: 1px solid #3f3f46;
             color: #e4e4e7;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .tool-btn.active {
+            background: #10b981;
+            color: #000;
+            border-color: #34d399;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .control-group { 
+            background: #27272a; 
+            padding: 12px; 
+            border-radius: 14px; 
+            border: 1px solid #3f3f46/50;
+            margin-bottom: 10px; 
+        }
+
+        .control-label { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 12px; 
+            color: #d4d4d8; 
+            margin-bottom: 8px; 
             font-weight: 600;
         }
-        .tool-btn.active {
-            background: #22c55e;
-            color: black;
-            border-color: #4ade80;
+
+        /* Custom Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 280px;
+            max-width: 90%;
+            background-color: #1e1b4b;
+            color: #e0e7ff;
+            text-align: center;
+            border-radius: 12px;
+            padding: 12px 20px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            top: 20px;
+            transform: translateX(-50%);
+            border: 1px solid #6366f1;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            font-size: 13px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s, visibility 0.3s;
         }
-        .control-group { background: #27272a; padding: 10px; border-radius: 12px; margin-bottom: 8px; }
-        .control-label { display: flex; justify-content: space-between; font-size: 11px; color: #a1a1aa; margin-bottom: 6px; }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
 
-    <!-- منطقة المعاينة -->
-    <div class="viewport" id="viewport">
+    <!-- تنبيه الرسائل Custom Toast -->
+    <div id="toast">مرحباً بك في المحرر الذكي</div>
+
+    <!-- منطقة عرض وتعديل الكانفاس -->
+    <div class="viewport-container checkerboard-bg" id="viewport">
         <canvas id="mainCanvas"></canvas>
-        <div id="modeIndicator" class="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] text-indigo-300 border border-indigo-500/30 font-semibold pointer-events-none">
-            الوضع: تحريك الصورة 🖐️
+        
+        <!-- مؤشر الحالة العلوي -->
+        <div id="modeIndicator" class="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] text-indigo-300 border border-indigo-500/40 font-bold shadow-lg pointer-events-none flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="modeText">الوضع: تحريك الصورة 🖐️</span>
+        </div>
+
+        <!-- تلميح البدء -->
+        <div id="canvasPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none">
+            <div class="w-16 h-16 bg-indigo-600/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center mb-3">
+                <span class="text-3xl">🖼️</span>
+            </div>
+            <h3 class="text-sm font-bold text-gray-200">قم برفع الصور أو إدخال روابط مباشرة</h3>
+            <p class="text-xs text-gray-400 mt-1 max-w-xs">يمكنك رفع صورة الكروما وصورة الخلفية من الجهاز أو عبر رابط مباشر URL</p>
         </div>
     </div>
 
-    <!-- لوحة التحكم -->
+    <!-- لوحة الأدوات والتحكم -->
     <div class="controls-overlay">
-        <!-- شريط التبويبات -->
-        <div class="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar">
-            <button class="tab-btn active" onclick="switchTab('files', this)">📁 الصور</button>
+        <!-- شريط التبويبات الرئيسي -->
+        <div class="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
+            <button class="tab-btn active" onclick="switchTab('files', this)">📁 رفع الصور والروابط</button>
             <button class="tab-btn" onclick="switchTab('protect', this)">🛡️ فرشاة الحماية</button>
             <button class="tab-btn" onclick="switchTab('chroma', this)">🟢 إعدادات الكروما</button>
-            <button class="tab-btn" onclick="switchTab('transform', this)">📐 الوضع والحجم</button>
+            <button class="tab-btn" onclick="switchTab('transform', this)">📐 الحجم والموقع</button>
         </div>
 
-        <!-- 1. الصور -->
-        <div id="tab-files" class="tab-content space-y-3">
-            <div class="grid grid-cols-2 gap-2">
-                <button onclick="document.getElementById('greenInput').click()" class="bg-indigo-900/40 border border-indigo-500/40 p-3 rounded-xl text-center hover:bg-indigo-900/60 transition">
-                    <span class="text-xs text-indigo-300 font-bold block mb-1">1️⃣ صورة الكروما</span>
-                    <span class="text-[10px] text-gray-400">رفع من الجهاز</span>
-                </button>
-                <button onclick="document.getElementById('overlayInput').click()" class="bg-zinc-800 border border-zinc-700 p-3 rounded-xl text-center hover:bg-zinc-700 transition">
-                    <span class="text-xs text-zinc-200 font-bold block mb-1">2️⃣ الصورة المضافة</span>
-                    <span class="text-[10px] text-gray-400">رفع من الجهاز</span>
-                </button>
+        <!-- التبويب 1: الصور والتحميل (ملفات + روابط مباشرة) -->
+        <div id="tab-files" class="tab-content space-y-4">
+            
+            <!-- 1️⃣ كارت صورة الكروما -->
+            <div class="bg-zinc-900 p-3 rounded-2xl border border-zinc-800 space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-indigo-300">1️⃣ صورة الكروما (المقدمة)</span>
+                    <button onclick="document.getElementById('greenInput').click()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-3 py-1 rounded-lg font-semibold transition">
+                        رفع من الجهاز 📁
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <input type="url" id="greenUrlInput" placeholder="أو ألصق رابط مباشر للصورة (http...)" class="flex-1 bg-zinc-800 border border-zinc-700 text-xs text-gray-200 px-3 py-2 rounded-xl focus:outline-none focus:border-indigo-500 dir-ltr text-left">
+                    <button onclick="loadGreenFromUrl()" class="bg-zinc-700 hover:bg-zinc-600 text-xs px-3 py-2 rounded-xl text-gray-200 font-bold transition">
+                        جلب 🔗
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2️⃣ كارت صورة الخلفية -->
+            <div class="bg-zinc-900 p-3 rounded-2xl border border-zinc-800 space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-emerald-300">2️⃣ صورة الخلفية</span>
+                    <button onclick="document.getElementById('overlayInput').click()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3 py-1 rounded-lg font-semibold transition">
+                        رفع من الجهاز 📁
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <input type="url" id="overlayUrlInput" placeholder="أو ألصق رابط مباشر للخلفية (http...)" class="flex-1 bg-zinc-800 border border-zinc-700 text-xs text-gray-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 dir-ltr text-left">
+                    <button onclick="loadOverlayFromUrl()" class="bg-zinc-700 hover:bg-zinc-600 text-xs px-3 py-2 rounded-xl text-gray-200 font-bold transition">
+                        جلب 🔗
+                    </button>
+                </div>
             </div>
             
             <input type="file" id="greenInput" class="hidden" accept="image/*">
             <input type="file" id="overlayInput" class="hidden" accept="image/*">
 
-            <button id="downloadBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-xs shadow-lg transition">حفظ الصورة النهائية 💾</button>
-        </div>
-
-        <!-- 2. فرشاة الحماية والاستعادة (الحل للمشكلة) -->
-        <div id="tab-protect" class="tab-content hidden space-y-3">
-            <div class="bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl text-xs text-indigo-200 space-y-1">
-                <p class="font-bold text-indigo-400">💡 طريقة حل المشكلة:</p>
-                <p>اختر <b>"فرشاة الحماية"</b> وقم بالتلوين بأصبعك على الأجزاء الخضراء التي اختفت بالخطأ لترجع فوراً كالصورة الأصلية!</p>
+            <div class="bg-amber-950/30 p-2.5 rounded-xl border border-amber-500/30 text-[11px] text-amber-300/90 flex items-start gap-2">
+                <span class="text-sm">⚠️</span>
+                <span>عند استخدام رابط مباشر، تأكد أن الموقع المستضيف يتيح استخدام الصور عبر نطاقات أخرى (CORS) لضمان إمكانية الحفظ.</span>
             </div>
 
-            <div class="flex gap-2">
-                <button id="toolMoveBtn" class="tool-btn active flex-1" onclick="setInteractionMode('move')">🖐️ تحريك الصورة</button>
-                <button id="toolProtectBtn" class="tool-btn flex-1" onclick="setInteractionMode('protect')">🛡️ فرشاة الحماية</button>
-                <button id="toolEraseBtn" class="tool-btn flex-1" onclick="setInteractionMode('erase')">🧹 مسح الحماية</button>
+            <button id="downloadBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-xs shadow-lg shadow-indigo-600/30 transition active:scale-[0.98]">
+                تنزيل الصورة النهائية بجودة عالية 💾
+            </button>
+        </div>
+
+        <!-- التبويب 2: فرشاة الحماية والترميم -->
+        <div id="tab-protect" class="tab-content hidden space-y-3">
+            <div class="bg-emerald-950/30 border border-emerald-500/30 p-3 rounded-xl text-xs text-emerald-200 leading-relaxed">
+                <p class="font-bold text-emerald-400 mb-0.5">🛡️ الفرشاة السلسة:</p>
+                <p class="text-[11px] opacity-90">يمكنك الرسم والمسح بأصبعك أو الماوس بسلاسة وبدون تقطيع لاستعادة المناطق المعزولة بالخطأ.</p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+                <button id="toolMoveBtn" class="tool-btn active" onclick="setInteractionMode('move')">
+                    <span>🖐️</span> تحريك
+                </button>
+                <button id="toolProtectBtn" class="tool-btn" onclick="setInteractionMode('protect')">
+                    <span>🛡️</span> حماية
+                </button>
+                <button id="toolEraseBtn" class="tool-btn" onclick="setInteractionMode('erase')">
+                    <span>🧹</span> مسح
+                </button>
             </div>
 
             <div class="control-group">
-                <div class="control-label"><span>حجم الفرشاة</span> <span id="brushSizeVal">25px</span></div>
-                <input type="range" id="brushSize" min="5" max="100" value="25">
+                <div class="control-label">
+                    <span>حجم الفرشاة</span>
+                    <span id="brushSizeVal" class="text-indigo-400 font-bold">30px</span>
+                </div>
+                <input type="range" id="brushSize" min="5" max="150" value="30">
             </div>
 
-            <button onclick="clearMask()" class="w-full bg-red-900/30 border border-red-500/30 text-red-300 py-2 rounded-lg text-xs font-semibold">إعادة رسم الحماية من جديد 🔄</button>
+            <div class="flex gap-2">
+                <button onclick="undoMask()" class="flex-1 bg-zinc-800 border border-zinc-700 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:bg-zinc-700 transition">
+                    تراجع ↩️
+                </button>
+                <button onclick="clearMask()" class="flex-1 bg-red-950/40 border border-red-500/30 text-red-300 py-2.5 rounded-xl text-xs font-bold hover:bg-red-900/40 transition">
+                    إعادة ضبط الحماية 🔄
+                </button>
+            </div>
         </div>
 
-        <!-- 3. إعدادات الكروما والقطارة -->
+        <!-- التبويب 3: إعدادات الكروما والقطارة -->
         <div id="tab-chroma" class="tab-content hidden space-y-3">
-            <div class="flex items-center gap-3 bg-zinc-900 p-2.5 rounded-xl border border-zinc-800">
-                <button id="pickerBtn" onclick="togglePicker()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 rounded-lg font-bold whitespace-nowrap">
-                    🎯 اختيار اللون بالقطارة
+            <div class="flex items-center justify-between bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                <button id="pickerBtn" onclick="togglePicker()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold transition flex items-center gap-1.5 shadow-md">
+                    <span>🎯</span> اختيار اللون بالقطارة
                 </button>
-                <div class="flex items-center gap-2 text-xs text-gray-300">
-                    <span>اللون المحدد:</span>
-                    <div id="colorPreview" class="w-6 h-6 rounded-full border border-white" style="background-color: #00ff00;"></div>
+                <div class="flex items-center gap-2 text-xs text-gray-300 font-semibold">
+                    <span>اللون المعزول:</span>
+                    <div id="colorPreview" class="w-7 h-7 rounded-lg border-2 border-white shadow-inner" style="background-color: #00ff00;"></div>
                 </div>
             </div>
 
             <div class="control-group">
-                <div class="control-label"><span>قوة عزل اللون (Tolerance)</span> <span id="thresholdVal">110</span></div>
+                <div class="control-label">
+                    <span>حساسية عزل اللون (Tolerance)</span>
+                    <span id="thresholdVal" class="text-indigo-400 font-bold">110</span>
+                </div>
                 <input type="range" id="threshold" min="5" max="220" value="110">
             </div>
 
             <div class="control-group">
-                <div class="control-label"><span>نعومة الأطراف (Softness)</span> <span id="blurVal">0.5px</span></div>
-                <input type="range" id="blur" min="0" max="8" value="0.5" step="0.1">
+                <div class="control-label"><span>نعومة الحواف (Softness)</span> <span id="blurVal" class="text-indigo-400 font-bold">0.5px</span></div>
+                <input type="range" id="blur" min="0" max="6" value="0.5" step="0.1">
             </div>
         </div>
 
-        <!-- 4. الوضع والحجم -->
+        <!-- التبويب 4: التحريك والحجم -->
         <div id="tab-transform" class="tab-content hidden space-y-3">
             <div class="control-group">
-                <div class="control-label"><span>حجم الصورة المضافة</span> <span id="sizeVal">100%</span></div>
-                <input type="range" id="size" min="5" max="300" value="100">
+                <div class="control-label"><span>مقياس حجم الخلفية</span> <span id="sizeVal" class="text-indigo-400 font-bold">100%</span></div>
+                <input type="range" id="size" min="10" max="300" value="100">
             </div>
             <div class="control-group">
-                <div class="control-label"><span>التدوير</span> <span id="rotateVal">0°</span></div>
+                <div class="control-label"><span>زاوية التدوير</span> <span id="rotateVal" class="text-indigo-400 font-bold">0°</span></div>
                 <input type="range" id="rotate" min="0" max="360" value="0">
             </div>
+            <button onclick="resetTransform()" class="w-full bg-zinc-800 border border-zinc-700 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:bg-zinc-700 transition">
+                إعادة المحاذاة للمركز 🎯
+            </button>
         </div>
     </div>
 
@@ -173,17 +319,36 @@
         const canvas = document.getElementById('mainCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
-        let greenImg = null, overlayImg = null;
-        let maskCanvas = document.createElement('canvas');
-        let maskCtx = maskCanvas.getContext('2d');
+        let greenImg = null;    // صورة الكروما
+        let overlayImg = null;  // صورة الخلفية
 
+        // كانفاس قناع الحماية المستقل (Offscreen Mask Canvas)
+        const maskCanvas = document.createElement('canvas');
+        const maskCtx = maskCanvas.getContext('2d');
+
+        // حالة التطبيق
         let interactionMode = 'move'; // 'move', 'protect', 'erase', 'picker'
-        let keyColor = { r: 0, g: 255, b: 0 }; // Default Chroma Green
+        let keyColor = { r: 0, g: 255, b: 0 }; 
         
-        let props = { x: 0, y: 0, scale: 1, rot: 0, isDragging: false };
-        let brush = { size: 25, isDrawing: false };
+        let props = { x: 0, y: 0, scale: 1, rot: 0, isDragging: false, sx: 0, sy: 0 };
+        let brush = { size: 30, isDrawing: false, lastX: 0, lastY: 0 };
         let filters = { threshold: 110, blur: 0.5 };
 
+        // سجل التراجع لقناع الحماية
+        let maskHistory = [];
+        const MAX_HISTORY = 10;
+
+        // نظام التنبيهات Custom Toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // تبديل التبويبات
         window.switchTab = (tabId, btn) => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -194,27 +359,28 @@
         window.setInteractionMode = (mode) => {
             interactionMode = mode;
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            const ind = document.getElementById('modeIndicator');
+            const indText = document.getElementById('modeText');
             
             if (mode === 'move') {
                 document.getElementById('toolMoveBtn').classList.add('active');
-                ind.innerText = 'الوضع: تحريك الصورة 🖐️';
+                indText.innerText = 'الوضع: تحريك الصورة 🖐️';
             } else if (mode === 'protect') {
                 document.getElementById('toolProtectBtn').classList.add('active');
-                ind.innerText = 'الوضع: رسم الحماية (استعادة الأجزاء) 🛡️';
+                indText.innerText = 'الوضع: رسم فرشاة الحماية 🛡️';
             } else if (mode === 'erase') {
                 document.getElementById('toolEraseBtn').classList.add('active');
-                ind.innerText = 'الوضع: مسح قناع الحماية 🧹';
+                indText.innerText = 'الوضع: مسح الحماية 🧹';
             } else if (mode === 'picker') {
-                ind.innerText = 'الوضع: انقر على اللون المراد عزله 🎯';
+                indText.innerText = 'الوضع: انقر بالقطارة لتحديد اللون 🎯';
             }
         };
 
         function togglePicker() {
             setInteractionMode('picker');
+            showToast('انقر على أي نقطة في الصورة لتحديد لون العزل');
         }
 
-        // Setup Controls
+        // عناصر التحكم
         document.getElementById('brushSize').oninput = (e) => {
             brush.size = parseInt(e.target.value);
             document.getElementById('brushSizeVal').innerText = brush.size + 'px';
@@ -244,17 +410,18 @@
             render();
         };
 
-        // Upload Handlers
-        const handleUpload = (id, cb) => {
-            document.getElementById(id).onchange = e => {
+        // معالجة رفع الصور المحلية من الجهاز
+        const handleUpload = (inputId, callback) => {
+            document.getElementById(inputId).onchange = e => {
                 if (!e.target.files[0]) return;
-                const r = new FileReader();
-                r.onload = ev => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = ev => {
                     const img = new Image();
-                    img.onload = () => cb(img);
+                    img.onload = () => callback(img);
                     img.src = ev.target.result;
                 };
-                r.readAsDataURL(e.target.files[0]);
+                reader.readAsDataURL(file);
             };
         };
 
@@ -262,12 +429,11 @@
             greenImg = img;
             canvas.width = img.width;
             canvas.height = img.height;
-            
-            // Setup Protection Mask Canvas
             maskCanvas.width = img.width;
             maskCanvas.height = img.height;
+            document.getElementById('canvasPlaceholder').classList.add('hidden');
             clearMask();
-            
+            showToast('تم تحميل صورة الكروما من الجهاز');
             render();
         });
 
@@ -275,22 +441,108 @@
             overlayImg = img;
             props.x = canvas.width / 2;
             props.y = canvas.height / 2;
+            showToast('تم تحميل صورة الخلفية من الجهاز');
             render();
         });
 
+        // تحميل صورة الكروما عبر رابط مباشر URL
+        window.loadGreenFromUrl = () => {
+            const url = document.getElementById('greenUrlInput').value.trim();
+            if (!url) return showToast('يرجى أدخال رابط الصورة أولاً');
+
+            showToast('جاري جلب صورة الكروما من الرابط...');
+            const img = new Image();
+            img.crossOrigin = 'anonymous'; // محاولة تخطي قيود CORS
+            
+            img.onload = () => {
+                greenImg = img;
+                canvas.width = img.width;
+                canvas.height = img.height;
+                maskCanvas.width = img.width;
+                maskCanvas.height = img.height;
+                document.getElementById('canvasPlaceholder').classList.add('hidden');
+                clearMask();
+                showToast('تم جلب صورة الكروما بنجاح! 🟢');
+                render();
+            };
+
+            img.onerror = () => {
+                showToast('فشل جلب الصورة. تأكد من صحة الرابط أو سماح الموقع المستضيف (CORS).');
+            };
+
+            img.src = url;
+        };
+
+        // تحميل صورة الخلفية عبر رابط مباشر URL
+        window.loadOverlayFromUrl = () => {
+            const url = document.getElementById('overlayUrlInput').value.trim();
+            if (!url) return showToast('يرجى أدخال رابط خلفية صحيح أولاً');
+
+            showToast('جاري جلب صورة الخلفية...');
+            const img = new Image();
+            img.crossOrigin = 'anonymous'; // محاولة تخطي قيود CORS
+
+            img.onload = () => {
+                overlayImg = img;
+                props.x = canvas.width / 2;
+                props.y = canvas.height / 2;
+                showToast('تم جلب صورة الخلفية بنجاح! 🖼️');
+                render();
+            };
+
+            img.onerror = () => {
+                showToast('فشل جلب الخلفية. تحقق من رابط الصورة وسياسة الأمان للرابط.');
+            };
+
+            img.src = url;
+        };
+
+        function saveMaskState() {
+            if (!greenImg) return;
+            if (maskHistory.length >= MAX_HISTORY) maskHistory.shift();
+            maskHistory.push(maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height));
+        }
+
+        function undoMask() {
+            if (maskHistory.length > 0) {
+                const previousState = maskHistory.pop();
+                maskCtx.putImageData(previousState, 0, 0);
+                render();
+                showToast('تم التراجع عن آخر رسمة');
+            } else {
+                showToast('لا يوجد سجل للتراجع');
+            }
+        }
+
         function clearMask() {
-            maskCtx.fillStyle = '#000000'; // Black = No protection
+            if (!greenImg) return;
+            saveMaskState();
+            maskCtx.fillStyle = '#000000'; // أسود = بدون حماية
             maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
             render();
         }
 
-        // Touch & Mouse Input Handling
+        function resetTransform() {
+            if (!overlayImg) return;
+            props.x = canvas.width / 2;
+            props.y = canvas.height / 2;
+            props.scale = 1;
+            props.rot = 0;
+            document.getElementById('size').value = 100;
+            document.getElementById('sizeVal').innerText = '100%';
+            document.getElementById('rotate').value = 0;
+            document.getElementById('rotateVal').innerText = '0°';
+            render();
+            showToast('تم إعادة محاذاة الخلفية');
+        }
+
         const getCanvasCoords = (e) => {
-            const r = canvas.getBoundingClientRect();
-            const t = e.touches ? e.touches[0] : e;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             return {
-                x: (t.clientX - r.left) * (canvas.width / r.width),
-                y: (t.clientY - r.top) * (canvas.height / r.height)
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
             };
         };
 
@@ -299,17 +551,21 @@
             const pos = getCanvasCoords(e);
 
             if (interactionMode === 'picker') {
-                // Pick color from green image
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = greenImg.width;
-                tempCanvas.height = greenImg.height;
-                const tCtx = tempCanvas.getContext('2d');
-                tCtx.drawImage(greenImg, 0, 0);
-                const pixel = tCtx.getImageData(Math.floor(pos.x), Math.floor(pos.y), 1, 1).data;
-                keyColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
-                document.getElementById('colorPreview').style.backgroundColor = `rgb(${keyColor.r},${keyColor.g},${keyColor.b})`;
-                setInteractionMode('move');
-                render();
+                try {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = greenImg.width;
+                    tempCanvas.height = greenImg.height;
+                    const tCtx = tempCanvas.getContext('2d');
+                    tCtx.drawImage(greenImg, 0, 0);
+                    const pixel = tCtx.getImageData(Math.floor(pos.x), Math.floor(pos.y), 1, 1).data;
+                    keyColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
+                    document.getElementById('colorPreview').style.backgroundColor = `rgb(${keyColor.r},${keyColor.g},${keyColor.b})`;
+                    setInteractionMode('move');
+                    showToast(`تم تحديد اللون: RGB(${keyColor.r}, ${keyColor.g}, ${keyColor.b})`);
+                    render();
+                } catch(err) {
+                    showToast('تعذر أخذ العينة بسبب حماية الخادم للرابط المباشر (CORS)');
+                }
                 return;
             }
 
@@ -318,21 +574,28 @@
                 props.sx = pos.x - props.x;
                 props.sy = pos.y - props.y;
             } else if (interactionMode === 'protect' || interactionMode === 'erase') {
+                saveMaskState();
                 brush.isDrawing = true;
-                drawMask(pos.x, pos.y);
+                brush.lastX = pos.x;
+                brush.lastY = pos.y;
+                drawMaskLine(pos.x, pos.y, pos.x, pos.y);
             }
         };
 
         const handleMove = (e) => {
+            if (!greenImg) return;
             const pos = getCanvasCoords(e);
+
             if (props.isDragging) {
                 props.x = pos.x - props.sx;
                 props.y = pos.y - props.sy;
                 render();
             } else if (brush.isDrawing) {
-                drawMask(pos.x, pos.y);
+                drawMaskLine(brush.lastX, brush.lastY, pos.x, pos.y);
+                brush.lastX = pos.x;
+                brush.lastY = pos.y;
             }
-            if (e.preventDefault && interactionMode !== 'move') e.preventDefault();
+            if (e.preventDefault && (interactionMode === 'protect' || interactionMode === 'erase')) e.preventDefault();
         };
 
         const handleEnd = () => {
@@ -340,13 +603,21 @@
             brush.isDrawing = false;
         };
 
-        function drawMask(x, y) {
+        // رسم حماية ناعم وسلس
+        function drawMaskLine(x1, y1, x2, y2) {
             maskCtx.save();
+            maskCtx.strokeStyle = (interactionMode === 'protect') ? '#ffffff' : '#000000';
+            maskCtx.fillStyle = maskCtx.strokeStyle;
+            maskCtx.lineWidth = brush.size * 2;
+            maskCtx.lineCap = 'round';
+            maskCtx.lineJoin = 'round';
+
             maskCtx.beginPath();
-            maskCtx.arc(x, y, brush.size, 0, Math.PI * 2);
-            maskCtx.fillStyle = (interactionMode === 'protect') ? '#ffffff' : '#000000'; // White = Protected
-            maskCtx.fill();
+            maskCtx.moveTo(x1, y1);
+            maskCtx.lineTo(x2, y2);
+            maskCtx.stroke();
             maskCtx.restore();
+
             render();
         }
 
@@ -358,12 +629,11 @@
         canvas.addEventListener('touchmove', handleMove, { passive: false });
         canvas.addEventListener('touchend', handleEnd);
 
-        // Core Rendering Engine with Mask Protection
         function render() {
             if (!greenImg) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. Draw Overlay Image (Bottom Layer)
+            // 1. رسم الصورة الخلفية
             if (overlayImg) {
                 ctx.save();
                 ctx.translate(props.x, props.y);
@@ -374,67 +644,71 @@
                 ctx.restore();
             }
 
-            // 2. Process Green Chroma + Protection Mask
-            const off = document.createElement('canvas');
-            off.width = greenImg.width;
-            off.height = greenImg.height;
-            const oCtx = off.getContext('2d');
-            oCtx.drawImage(greenImg, 0, 0);
+            // 2. معالجة الكروما وقناع الحماية
+            try {
+                const offscreen = document.createElement('canvas');
+                offscreen.width = greenImg.width;
+                offscreen.height = greenImg.height;
+                const oCtx = offscreen.getContext('2d');
+                oCtx.drawImage(greenImg, 0, 0);
 
-            const imgData = oCtx.getImageData(0, 0, greenImg.width, greenImg.height);
-            const d = imgData.data;
+                const imgData = oCtx.getImageData(0, 0, greenImg.width, greenImg.height);
+                const d = imgData.data;
 
-            const maskData = maskCtx.getImageData(0, 0, greenImg.width, greenImg.height).data;
+                const maskData = maskCtx.getImageData(0, 0, greenImg.width, greenImg.height).data;
 
-            for (let i = 0; i < d.length; i += 4) {
-                const isProtected = maskData[i] > 128; // If user painted protection here
+                for (let i = 0; i < d.length; i += 4) {
+                    const isProtected = maskData[i] > 128; // هل البكسل محمي بالفرشاة؟
 
-                if (!isProtected) { // Apply chroma removal only if NOT protected
-                    const r = d[i], g = d[i+1], b = d[i+2];
-                    
-                    // Distance from target Key Color
-                    const dist = Math.sqrt((r - keyColor.r)**2 + (g - keyColor.g)**2 + (b - keyColor.b)**2);
+                    if (!isProtected) { 
+                        const r = d[i], g = d[i+1], b = d[i+2];
+                        
+                        const dist = Math.sqrt(
+                            (r - keyColor.r) ** 2 + 
+                            (g - keyColor.g) ** 2 + 
+                            (b - keyColor.b) ** 2
+                        );
 
-                    if (dist < filters.threshold) {
-                        d[i+3] = 0; // Make pixel transparent
+                        if (dist < filters.threshold) {
+                            d[i+3] = 0; // جعل البكسل شفاف
+                        }
                     }
                 }
-            }
 
-            oCtx.putImageData(imgData, 0, 0);
+                oCtx.putImageData(imgData, 0, 0);
 
-            // Final Composite
-            ctx.save();
-            if (filters.blur > 0) ctx.filter = `blur(${filters.blur}px)`;
-            ctx.drawImage(off, 0, 0);
-            ctx.restore();
-
-            // Overlay Brush Helper Circle on screen when painting
-            if (interactionMode === 'protect' || interactionMode === 'erase') {
-                // Brush indicator is drawn dynamically during touch
+                // 3. الدمج مع تأثير النعومة
+                ctx.save();
+                if (filters.blur > 0) ctx.filter = `blur(${filters.blur}px)`;
+                ctx.drawImage(offscreen, 0, 0);
+                ctx.restore();
+            } catch(e) {
+                // في حالة تقييد CORS أثناء العزل
+                ctx.drawImage(greenImg, 0, 0);
             }
         }
 
+        // تنزيل الصورة النهائية
         document.getElementById('downloadBtn').onclick = () => {
-            if (!greenImg) return alert("الرجاء رفع صورة الكروما أولاً");
-            const l = document.createElement('a');
-            l.download = 'chroma_protected_result.png';
-            l.href = canvas.toDataURL();
-            l.click();
+            if (!greenImg) return showToast('يرجى رفع صورة الكروما أولاً للتصدير');
+            
+            try {
+                const link = document.createElement('a');
+                link.download = 'chroma_result.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('تم حفظ الصورة بنجاح 💾');
+            } catch (err) {
+                showToast('تعذر تنزيل الصورة: رابط الصورة الخارجي محمي ضد المشاركة (CORS Tainted). يُفضل رفع الصورة من جهازك لحفظها.');
+            }
         };
 
         window.onload = () => {
-            canvas.width = 1000; 
-            canvas.height = 1000;
+            canvas.width = 800; 
+            canvas.height = 800;
             ctx.fillStyle = '#09090b'; 
-            ctx.fillRect(0,0,1000,1000);
-            ctx.fillStyle = '#52525b';
-            ctx.font = '24px Cairo';
-            ctx.textAlign = 'center';
-            ctx.fillText('قم برفع الصور للبدء 📁', 500, 500);
+            ctx.fillRect(0, 0, 800, 800);
         };
     </script>
 </body>
 </html>
-
-```
